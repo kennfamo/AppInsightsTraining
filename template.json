@@ -1,0 +1,88 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "SiteName": {
+            "type": "String"
+        }
+    },
+    "variables": {
+	    "ASPName": "[concat(parameters('SiteName'),'Plan')]",
+		"AppInsightsID": "[concat('microsoft.insights/components/', parameters('SiteName'))]"
+	},
+    "resources": [
+        {
+            "type": "microsoft.insights/components",
+            "apiVersion": "2015-05-01",
+            "name": "[parameters('SiteName')]",
+            "location": "centralus",
+            "kind": "web",
+            "properties": {
+                "Application_Type": "web",
+                "Request_Source": "IbizaWebAppExtensionCreate"
+            }
+        },
+        {
+            "type": "Microsoft.Web/serverfarms",
+            "apiVersion": "2016-09-01",
+            "name": "[variables('ASPName')]",
+            "location": "Central US",
+            "sku": {
+                "name": "S1",
+                "tier": "Standard",
+                "size": "S1",
+                "family": "S",
+                "capacity": 1
+            },
+            "kind": "app",
+            "properties": {
+                "name": "[variables('ASPName')]",
+                "perSiteScaling": false,
+                "reserved": false,
+                "targetWorkerCount": 0,
+                "targetWorkerSizeId": 0
+            }
+        },
+        {
+            "type": "Microsoft.Web/sites",
+            "apiVersion": "2016-08-01",
+            "name": "[parameters('SiteName')]",
+            "location": "Central US",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/serverfarms', variables('ASPName'))]"
+            ],
+            "kind": "app",
+            "properties": {
+                "name": "[parameters('SiteName')]",
+                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('ASPName'))]",
+				"siteConfig": {
+                    "appSettings": [
+                        {
+                            "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
+                            "value": "[reference(variables('AppInsightsID'), '2015-05-01').InstrumentationKey]"
+                        },
+                        {
+                            "name": "ApplicationInsightsAgent_EXTENSION_VERSION",
+                            "value": "~2"
+                        }
+                    ]
+                }
+            },
+			"resources": [
+				{
+					"apiVersion": "2015-08-01",
+					"name": "web",
+					"type": "sourcecontrols",
+					"dependsOn": [
+						"[resourceId('Microsoft.Web/Sites', parameters('SiteName'))]"
+					],
+					"properties": {
+						"RepoUrl": "https://github.com/kennfamo/AppInsightsTraining.git",
+						"branch": "master",
+						"IsManualIntegration": true
+					}
+				}
+			]
+        }
+    ]
+}
